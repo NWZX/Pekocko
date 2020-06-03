@@ -7,19 +7,24 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "tsc": "tsc",
-    "start": "node build/app.js"
+    "start": "node build/app.js",
+    "docker": "node build/app.js --docker"
   },
   "author": "NWZX",
   "license": "MIT",
   "devDependencies": {
+    "@types/bcrypt": "^3.0.0",
     "@types/express": "^4.17.6",
+    "@types/jsonwebtoken": "^8.5.0",
     "@types/mongoose": "^5.7.21",
     "@types/node": "^14.0.4",
     "ts-node": "^8.10.1",
     "typescript": "^3.9.3"
   },
   "dependencies": {
+    "bcrypt": "^3.0.8",
     "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.9.15"
   }
 }
