@@ -28,8 +28,11 @@ app.use(bodyParser.json())
 //Create Route
 app.use('/api/auth', userRoutes.default);
 app.use('/api/sauces', sauceRoutes.default);
-app.use((err: ErrorHandler, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    handleError(err, res);
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if(err instanceof ErrorHandler)
+        handleError(err, res);
+    else
+        handleError(new ErrorHandler(500, JSON.stringify(err)), res);
 });
 
 app.listen(PORT, function () {

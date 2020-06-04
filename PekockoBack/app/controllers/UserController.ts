@@ -33,54 +33,62 @@ export function SignUp(req: express.Request, res: express.Response, next: expres
                     };
                     userModel.create(newUser, (err: any, result: Users.IUser[]) => {
                         if (err) {
-                            console.error(err);
-                            res.status(500).send(err); //Unexpected
+                            throw new ErrorHandler(500, err); //Unexpected
                         }
                     });
                     res.status(200).json({ message: 'Success' });
                 }
                 else {
-                    console.error(error?.message);
-                    res.status(404).send(error?.message);
+                    if(error?.message)
+                        throw new ErrorHandler(404, error?.message);
+                    else
+                        throw new ErrorHandler(404, 'User already exist');
                 }
             })
         }
         else {
-            console.error("Invalid Email");
-            res.status(400).send(new Error('Invalid Email'));
+            throw new ErrorHandler(400, 'Invalid Email');
         }
-    } catch (error) {
-        next(error)
+    }
+    catch (error) {
+        next(error);
     }
 }
 
 export function LogIn(req: express.Request, res: express.Response, next: express.NextFunction) {
-    if (!req.body || !req.body.email || !req.body.password) {
-        res.status(400).send(new Error('Bad request!'));
+    try {
+        if (!req.body || !req.body.email || !req.body.password) {
+            throw new ErrorHandler(400, 'Invalid json format');
+        }
+        if (regex_email.test(req.body.email) && req.body.password != 'undefined') {
+            FindUser(req.body.email, (error, user) => {
+                if (error || typeof user === 'undefined') {
+                    if(error?.message)
+                        throw new ErrorHandler(404, error?.message); //User not found
+                    else
+                        throw new ErrorHandler(404, 'User not found');
+                }
+                else if (bcrypt.compareSync(req.body.password, user.password)) {
+                    res.status(200).json({
+                        userId: user._id,
+                        token: jwt.sign(
+                            { userId: user._id },
+                            Settings.getSecret(),
+                            { expiresIn: '24h' }
+                        )
+                    });
+                }
+                else {
+                    throw new ErrorHandler(400, 'Invalid information'); // Invalid Password (maybe)
+                }
+            });
+        }
+        else {
+            throw new ErrorHandler(400, 'Invalid Email');
+        }
     }
-    if (regex_email.test(req.body.email) && req.body.password != 'undefined') {
-        FindUser(req.body.email, (error, user) => {
-            if (error || typeof user === 'undefined') {
-                res.status(404).send(error); //User not found
-            }
-            else if (bcrypt.compareSync(req.body.password, user.password)) {
-                res.status(200).json({
-                    userId: user._id,
-                    token: jwt.sign(
-                        { userId: user._id },
-                        Settings.getSecret(),
-                        { expiresIn: '24h' }
-                    )
-                });
-            }
-            else {
-                res.status(400).send(new Error('Invalid information!'));
-            }
-        });
-    }
-    else {
-        console.error("Invalid Email");
-        res.status(400).send(new Error('Invalid Email'));
+    catch (error) {
+        next(error);
     }
 }
 
