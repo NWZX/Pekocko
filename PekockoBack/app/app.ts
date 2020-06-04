@@ -1,17 +1,22 @@
+//Required dependency
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
 
-//
+//Route Files
 import * as userRoutes from './routes/userRoutes';
 import * as sauceRoutes from './routes/sauceRoutes';
+import { ErrorHandler, handleError } from './security/errorModule';
+
+//Setting
+import { PORT } from './appSettings';
 
 // Create a new express application instance
 const app: express.Application = express();
 
 
 //Connect to MongoDB
-mongoose.connect('mongodb://mongo:27017/', { useNewUrlParser: true }).then(() => {
+mongoose.connect('mongodb://localhost:27017/', { useNewUrlParser: true }).then(() => {
     console.log('Successfully connected to MongoDB');
 }).catch((error) => {
     console.log('Unable to connect to MongoDB');
@@ -23,8 +28,10 @@ app.use(bodyParser.json())
 //Create Route
 app.use('/api/auth', userRoutes.default);
 app.use('/api/sauces', sauceRoutes.default);
+app.use((err: ErrorHandler, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    handleError(err, res);
+});
 
-app.listen(3000, function () {
-    console.log('SimpleChat API start on port 3000!');
-})
-export default app;
+app.listen(PORT, function () {
+    console.log('SimpleChat API start on port ${PORT}!');
+});
