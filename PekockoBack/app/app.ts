@@ -33,5 +33,5 @@ app.use((err: ErrorHandler, req: express.Request, res: express.Response, next: e
 });
 
 app.listen(PORT, function () {
-    console.log('SimpleChat API start on port ${PORT}!');
+    console.log('SimpleChat API start on port ' + PORT);
 });
