@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import express from 'express';
-import * as Settings from '../../appSettings';
+import * as Settings from '../appSettings';
 
 export default function Auth(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
