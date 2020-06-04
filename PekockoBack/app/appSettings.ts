@@ -1,8 +1,17 @@
 import crypto from 'crypto';
 import * as fs from 'fs';
 
+//Generated key size (only if no key exist)
 export const KEY_SIZE = 64;
+
+//Secret token filename
 export const SECRET_NAME = 'TOKEN_SECRET';
+
+//Server port
+export const PORT = '3000';
+
+//Enable console log
+export const DEBUG = true;
 
 
 export function randomKey(size: number) {
