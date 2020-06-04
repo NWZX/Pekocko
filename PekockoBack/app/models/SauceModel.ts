@@ -1,7 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISauce extends Document {
+    // ID de la sauce
     id: string;
+    // Utilisateur qui a crée la sauce
     userId: string;
     name: string;
     manufacturer: string;
