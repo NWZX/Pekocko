@@ -1,59 +1,86 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import * as User from '../models/UserModel';
 import bcrypt from 'bcrypt';
+
+import * as Users from '../models/UserModel';
 import * as Settings from '../appSettings';
+import { ErrorHandler } from '../security/errorModule';
 
 const regex_email = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-let userModel = User.default;
+let userModel = Users.default;
 
 //Controller Methods
 
-export function SignUp(req: express.Request, res: express.Response) {
-    if (!req.body || !req.body.email || !req.body.pasword) {
-        return res.status(400).send(new Error('Bad request!'));
+/**
+ * Add a new user in database
+ *  - Check if the email is a valide email
+ *  - Lowcases the email before adding to the db
+ * @param req 
+ * @param res 
+ */
+export function SignUp(req: express.Request, res: express.Response, next: express.NextFunction) {
+    try {
+        if (!req.body || !req.body.email || !req.body.password) {
+            throw new ErrorHandler(400, 'Invalid json format');
+        }
+        if (regex_email.test(req.body.email) && typeof req.body.password != 'undefined') {
+            FindUser(req.body.email, (error, user) => {
+                if (typeof user === 'undefined') {
+                    let lowercasesEmail: string = req.body.email;
+                    let newUser = {
+                        email: lowercasesEmail.toLocaleLowerCase(),
+                        password: HashPass(req.body.password),
+                    };
+                    userModel.create(newUser, (err: any, result: Users.IUser[]) => {
+                        if (err) {
+                            console.error(err);
+                            res.status(500).send(err); //Unexpected
+                        }
+                    });
+                    res.status(200).json({ message: 'Success' });
+                }
+                else {
+                    console.error(error?.message);
+                    res.status(404).send(error?.message);
+                }
+            })
+        }
+        else {
+            console.error("Invalid Email");
+            res.status(400).send(new Error('Invalid Email'));
+        }
+    } catch (error) {
+        next(error)
     }
-    if (regex_email.test(req.body.email) && req.body.password != 'undefined' && FindUser(req.body.email) != false) {
-        let newUser = {
-            email: req.body.email,
-            password: HashPass(req.body.password),
-        };
-        userModel.create(newUser, function (err: any, result: User.IUser[]) {
-            res.send(err);
-        });
-        res.status(200).json({ message: 'Success' });
-    }
-    else {
-        console.error("Invalid Email");
-        return res.status(400).send(new Error('Bad request!'));
-    }
-
 }
 
-export function LogIn(req: express.Request, res: express.Response) {
-    if (!req.body || !req.body.email || !req.body.pasword) {
-        return res.status(400).send(new Error('Bad request!'));
+export function LogIn(req: express.Request, res: express.Response, next: express.NextFunction) {
+    if (!req.body || !req.body.email || !req.body.password) {
+        res.status(400).send(new Error('Bad request!'));
     }
     if (regex_email.test(req.body.email) && req.body.password != 'undefined') {
-        let loginUser: User.IUser = FindUser(req.body.email);
-        if (!loginUser)
-            return res.status(400).send(new Error('Bad request!'));
-
-        if (loginUser.password == HashPass(req.body.password))
-            return res.status(200).json({
-                userId: loginUser._id,
-                token: jwt.sign(
-                    { userId: loginUser._id },
-                    Settings.getSecret(),
-                    { expiresIn: '24h' }
-                )
-            })
-
-        res.status(200).json({ message: 'Success' });
+        FindUser(req.body.email, (error, user) => {
+            if (error || typeof user === 'undefined') {
+                res.status(404).send(error); //User not found
+            }
+            else if (bcrypt.compareSync(req.body.password, user.password)) {
+                res.status(200).json({
+                    userId: user._id,
+                    token: jwt.sign(
+                        { userId: user._id },
+                        Settings.getSecret(),
+                        { expiresIn: '24h' }
+                    )
+                });
+            }
+            else {
+                res.status(400).send(new Error('Invalid information!'));
+            }
+        });
     }
     else {
         console.error("Invalid Email");
-        return res.status(400).send(new Error('Bad request!'));
+        res.status(400).send(new Error('Invalid Email'));
     }
 }
 
@@ -64,18 +91,18 @@ function HashPass(message: string): string {
     return bcrypt.hashSync(message, 12);
 }
 
-function FindUser(email: string): any {
+type findUserCallback = (error?: Error, user?: Users.IUser) => void;
+function FindUser(email: string, callback: findUserCallback) {
     userModel.findOne({ email: { $eq: email } }).then(
         (userFound) => {
-            if (!userFound)
-                return false;
-
-            return userFound;
+            if (userFound == null)
+                callback(new Error('User not found'));
+            else
+                callback(undefined, userFound);
         }
     ).catch(
-        () => {
-            return false;
+        (reason) => {
+            callback(new Error(reason));
         }
     );
-    return false;
 }
