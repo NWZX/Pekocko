@@ -15,8 +15,7 @@
 	// 	],
 	// 	"description": "Log output to console"
 	// }
-
-	"New Error":{
+	"New Error": {
 		"scope": "typescript",
 		"prefix": "erh",
 		"body": [
@@ -24,18 +23,15 @@
 		],
 		"description": "Throw a new error to error manager"
 	},
-	"tryplusplus":{
+	"tryplusplus": {
 		"scope": "typescript",
 		"prefix": "trycatchplus",
 		"body": [
 			"try {",
-			"$1",
+			"   $1",
 			"}",
 			"catch (error){",
-			"    if(error instanceof ErrorHandler)",
-            "       next(error)",
-        	"    else",
-			"        next(new ErrorHandler(500, 'Unexpected error'));",
+			"   next(error)",
 			"}"
 		],
 		"description": "TryCatch adapted for API standart"
