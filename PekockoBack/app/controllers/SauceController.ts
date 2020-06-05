@@ -1,7 +1,10 @@
-import express from 'express';
+import express, { json } from 'express';
+import * as fs from 'fs';
+import { v4 as uuid } from 'uuid';
+
 import * as Sauces from '../models/SauceModel';
 import { ErrorHandler } from '../security/errorModule';
-import { mongo, Mongoose } from 'mongoose';
+import { IMG_PATH, MAX_IMG_SIZE, IMG_TYPE, HOSTNAME, PORT } from '../appSettings';
 
 let sauceModel = Sauces.default;
 
@@ -18,11 +21,11 @@ export function GetAllSauce(req: express.Request, res: express.Response, next: e
             }
         ).catch(
             (reson) => {
-                res.status(400).send(reson);
+                throw new ErrorHandler(400, reson);
             }
         );
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
 }
@@ -35,9 +38,33 @@ export function GetAllSauce(req: express.Request, res: express.Response, next: e
 export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
         if (!req.body || !req.body.sauce || !req.body.image)
-            res.status(400).send('Json data error');
+            throw new ErrorHandler(400, 'Invalid json format');
+
+        let receptSauce: Sauces.ISauce = req.body.sauce;
+        let receptImg: File = req.body.image;
+
+        saveImage(receptImg, (error, filename) => {
+            if (typeof error === 'undefined' && typeof filename === 'string') {
+                receptSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob' + filename;
+                receptSauce.likes = 0;
+                receptSauce.dislikes = 0;
+                receptSauce.usersLiked = [];
+                receptSauce.usersDisliked = [];
+
+                sauceModel.create(receptSauce, (err: any, result: Sauces.ISauce[]) => {
+                    if (err) throw err;
+                    if (JSON.stringify(receptSauce) !== JSON.stringify(result[0]))
+                        throw new ErrorHandler(500, 'Bad data entry');
+                });
+
+                res.status(200).json({ message: 'Adding new sauce' });
+            }
+            else {
+                throw error;
+            }
+        });
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
 }
@@ -57,11 +84,11 @@ export function GetSauce(req: express.Request, res: express.Response, next: expr
             }
         ).catch(
             (reason) => {
-                res.status(400).send(reason);
+                throw new ErrorHandler(400, reason);
             }
         );
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
 }
@@ -73,9 +100,9 @@ export function GetSauce(req: express.Request, res: express.Response, next: expr
  */
 export function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-    
+
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
 }
@@ -95,19 +122,18 @@ export function DeleteSauce(req: express.Request, res: express.Response, next: e
                     if (typeof result.deletedCount === 'number' && result.deletedCount > 0)
                         res.status(200).json({ message: 'Sauce ' + id + ' erased' });
                     else
-                        throw 'Can\'t remove element';
+                        throw new ErrorHandler(400, 'Can\'t remove element');
                 else
-                    throw 'Can\'t remove element';
-    
+                    throw new ErrorHandler(400, 'Can\'t remove element');
+
             }
         ).catch(
             (reason) => {
-                throw new ErrorHandler(400, '');
-                res.status(400).json(reason)
+                throw new ErrorHandler(400, reason);
             }
         );
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
 }
@@ -119,9 +145,87 @@ export function DeleteSauce(req: express.Request, res: express.Response, next: e
  */
 export function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-    
+
     }
-    catch (error){
+    catch (error) {
         next(error);
     }
+}
+
+type saveImageCallback = (error?: Error, filename?: string) => void;
+function saveImage(file: File, callback: saveImageCallback) {
+    if (file.size > 0 && file.size < MAX_IMG_SIZE * Math.pow(1024, 2)) {
+        checkFileMIME(file, (err, type) => {
+            if (typeof err === 'undefined' && typeof type === 'string') {
+                if (!IMG_TYPE.includes(type))
+                    callback(new Error('Invalid file type'));
+
+                const imgPath = IMG_PATH();
+                let path = imgPath + '/' + uuid() + type;
+
+                while (fs.existsSync(path)) {
+                    path = imgPath + '/' + uuid() + type;
+                }
+
+                const promiseText = file.text().then(
+                    (text) => {
+                        fs.writeFile(path, text, (err) => {
+                            if (err) callback(new Error(err.message));
+                        })
+                        callback(undefined, path.split('/')[path.split('/').length - 1]);
+                    }
+                ).catch(
+                    (error) => {
+                        callback(new Error(error));
+                    }
+                );
+            }
+            else {
+                callback(err);
+            }
+        });
+    }
+    else {
+        callback(new Error('Invalid file size'));
+    }
+}
+
+type checkFileMIMECallback = (error?: Error, type?: string) => void;
+function checkFileMIME(file: File, callback: checkFileMIMECallback) {
+    file.arrayBuffer().then(
+        (array) => {
+            let arr = (new Uint8Array(array)).subarray(0, 4);
+            let header = "";
+            for (let i = 0; i < arr.length; i++) {
+                header += arr[i].toString(16);
+            }
+            console.log(header);
+
+            let type: string = '.' + file.type.split('/')[1];
+            // Add more from http://en.wikipedia.org/wiki/List_of_file_signatures
+            switch (header) {
+                case "89504e47":
+                    type = ".png";
+                    break;
+                case "47494638":
+                    type = ".gif";
+                    break;
+                case "ffd8ffe0":
+                case "ffd8ffe1":
+                case "ffd8ffe2":
+                case "ffd8ffe3":
+                case "ffd8ffe8":
+                    type = ".jpeg";
+                    break;
+                default:
+                    // Default file.type
+                    break;
+            }
+            callback(undefined, type);
+        }
+    ).catch(
+        (err) => {
+            callback(new Error('File reading error'));
+        }
+    )
 }
