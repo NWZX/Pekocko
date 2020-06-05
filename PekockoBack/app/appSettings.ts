@@ -7,8 +7,19 @@ export const KEY_SIZE = 64;
 //Secret token filename
 export const SECRET_NAME = 'TOKEN_SECRET';
 
+export const HOSTNAME = 'localhost';
 //Server port
 export const PORT = '3000';
+
+export const IMG_PATH = (): string => {
+    let path = __dirname + '/public/img';
+    fs.mkdir(path, { recursive: true }, (err) => {
+        if (err) throw err;
+    });
+    return path;
+}
+export const MAX_IMG_SIZE = 4;
+export const IMG_TYPE = ['.png', '.jpeg'];
 
 //Enable console log
 export const DEBUG = true;
