@@ -15,7 +15,7 @@ export default function Auth(req: express.Request, res: express.Response, next: 
 
         let userId = (decodedToken as any).userId;
         if (req.body.userId && req.body.userId !== userId) {
-            throw 'Invalid user ID';
+            throw new Error('Invalid user ID');
         } else {
             next();
         }

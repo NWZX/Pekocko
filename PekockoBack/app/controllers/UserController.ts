@@ -15,8 +15,8 @@ let userModel = Users.default;
  * Add a new user in database
  *  - Check if the email is a valide email
  *  - Lowcases the email before adding to the db
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function SignUp(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
