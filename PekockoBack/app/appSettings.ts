@@ -12,9 +12,9 @@ export const HOSTNAME = 'localhost';
 export const PORT = '3000';
 
 export const IMG_PATH = (): string => {
-    let path = __dirname + '/public/img';
-    fs.mkdir(path, { recursive: true }, (err) => {
-        if (err) throw err;
+    let path = __dirname + '/userdata';
+    fs.mkdir(path, (err) => {
+        if (err && err.code != 'EEXIST') throw err;
     });
     return path;
 }
