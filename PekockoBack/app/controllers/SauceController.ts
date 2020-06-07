@@ -11,8 +11,8 @@ let sauceModel = Sauces.default;
 
 /**
  * Get all sauces in database
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function GetAllSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
@@ -29,8 +29,8 @@ export async function GetAllSauce(req: express.Request, res: express.Response, n
 
 /**
  * Add a new sauce in database
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
@@ -59,8 +59,8 @@ export function AddNewSauce(req: express.Request, res: express.Response, next: e
 
 /**
  * Get the sauce match with ID
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function GetSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
@@ -82,8 +82,8 @@ export async function GetSauce(req: express.Request, res: express.Response, next
 
 /**
  * Update the sauce match with ID
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
@@ -126,8 +126,8 @@ export async function UpdateSauce(req: express.Request, res: express.Response, n
 
 /**
  * Delete the sauce match with ID
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function DeleteSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
@@ -153,8 +153,8 @@ export async function DeleteSauce(req: express.Request, res: express.Response, n
 
 /**
  * Update the likes of the sauce
- * @param req 
- * @param res 
+ * @param req
+ * @param res
  */
 export async function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
