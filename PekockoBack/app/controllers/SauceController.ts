@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 import * as Sauces from '../models/SauceModel';
 import { ErrorHandler } from '../security/errorModule';
 import { IMG_PATH, MAX_IMG_SIZE, IMG_TYPE, HOSTNAME, PORT } from '../appSettings';
+import { fileURLToPath } from 'url';
 
 let sauceModel = Sauces.default;
 
@@ -13,17 +14,13 @@ let sauceModel = Sauces.default;
  * @param req 
  * @param res 
  */
-export function GetAllSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function GetAllSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-        sauceModel.find().then(
-            (results) => {
-                res.status(200).json(results);
-            }
-        ).catch(
-            (reson) => {
-                throw new ErrorHandler(400, reson);
-            }
-        );
+        let sauce = await sauceModel.find();
+        if (sauce.length > 0)
+            res.status(200).json(sauce);
+        else
+            throw new ErrorHandler(404, 'Sauce not found');
     }
     catch (error) {
         next(error);
@@ -37,32 +34,23 @@ export function GetAllSauce(req: express.Request, res: express.Response, next: e
  */
 export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-        if (!req.body || !req.body.sauce || !req.body.image)
+        if (!req.body || !req.file || !req.body.sauce)
             throw new ErrorHandler(400, 'Invalid json format');
 
-        let receptSauce: Sauces.ISauce = req.body.sauce;
-        let receptImg: File = req.body.image;
+        let receptSauce: Sauces.ISauce = JSON.parse(req.body.sauce);
+        let receptImg: Express.Multer.File = req.file;
 
-        saveImage(receptImg, (error, filename) => {
-            if (typeof error === 'undefined' && typeof filename === 'string') {
-                receptSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob' + filename;
-                receptSauce.likes = 0;
-                receptSauce.dislikes = 0;
-                receptSauce.usersLiked = [];
-                receptSauce.usersDisliked = [];
+        receptSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob/' + receptImg.filename;
+        receptSauce.likes = 0;
+        receptSauce.dislikes = 0;
+        receptSauce.usersLiked = [];
+        receptSauce.usersDisliked = [];
 
-                sauceModel.create(receptSauce, (err: any, result: Sauces.ISauce[]) => {
-                    if (err) throw err;
-                    if (JSON.stringify(receptSauce) !== JSON.stringify(result[0]))
-                        throw new ErrorHandler(500, 'Bad data entry');
-                });
-
-                res.status(200).json({ message: 'Adding new sauce' });
-            }
-            else {
-                throw error;
-            }
+        sauceModel.create(receptSauce, (err: any, result: Sauces.ISauce[]) => {
+            if (err) throw err;
         });
+
+        res.status(201).json({ message: 'Adding new sauce' });
     }
     catch (error) {
         next(error);
@@ -74,19 +62,18 @@ export function AddNewSauce(req: express.Request, res: express.Response, next: e
  * @param req 
  * @param res 
  */
-export function GetSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function GetSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-        let id: string = req.param("id");
+        if (!req.params.id)
+            throw new ErrorHandler(400, 'Missing parameter');
 
-        sauceModel.findOne({ _id: { $eq: id } }).then(
-            (result) => {
-                res.status(200).json(result);
-            }
-        ).catch(
-            (reason) => {
-                throw new ErrorHandler(400, reason);
-            }
-        );
+        let id: string = req.params.id;
+
+        let sauce = await sauceModel.findOne({ _id: { $eq: id } });
+        if (!sauce)
+            throw new ErrorHandler(404, 'Sauce not found');
+        else
+            res.status(200).json(sauce);
     }
     catch (error) {
         next(error);
@@ -98,9 +85,39 @@ export function GetSauce(req: express.Request, res: express.Response, next: expr
  * @param req 
  * @param res 
  */
-export function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
+        if (!req.body)
+            throw new ErrorHandler(400, 'Invalid json argument');
+        if (!req.params.id)
+            throw new ErrorHandler(400, 'Missing parameter');
 
+        const sauceId: string = req.params.id;
+        let filter = { _id: { $eq: sauceId } };
+
+        //Verifie si la sauce existe
+        let oldSauce = await sauceModel.findOne(filter);
+        if (!oldSauce)
+            throw new ErrorHandler(404, 'Sauce not found');
+
+        //If file or not
+        let newSauce: Sauces.ISauce;
+        if (req.body.sauce && req.file) {
+            newSauce = JSON.parse(req.body.sauce);
+            deleteImage(oldSauce.imageUrl);
+            newSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob/' + req.file.filename;
+        }
+        else {
+            if (req.body.name)
+                newSauce = req.body;
+            else
+                throw new ErrorHandler(400, '');
+        }
+
+        //Met a jour la sauce
+        await sauceModel.updateOne(filter, newSauce);
+
+        res.status(200).json({ message: 'Sauce updated' });
     }
     catch (error) {
         next(error);
@@ -112,26 +129,22 @@ export function UpdateSauce(req: express.Request, res: express.Response, next: e
  * @param req 
  * @param res 
  */
-export function DeleteSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function DeleteSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
-        let id: string = req.param("id");
+        if (!req.params.id)
+            throw new ErrorHandler(400, 'Missing parameter');
 
-        sauceModel.deleteOne({ _id: { $eq: id } }).then(
-            (result) => {
-                if (typeof result.ok === 'number' && result.ok > 0)
-                    if (typeof result.deletedCount === 'number' && result.deletedCount > 0)
-                        res.status(200).json({ message: 'Sauce ' + id + ' erased' });
-                    else
-                        throw new ErrorHandler(400, 'Can\'t remove element');
-                else
-                    throw new ErrorHandler(400, 'Can\'t remove element');
+        let id: string = req.params.id;
 
-            }
-        ).catch(
-            (reason) => {
-                throw new ErrorHandler(400, reason);
-            }
-        );
+        let sauce = await sauceModel.findOneAndDelete({ _id: { $eq: id } });
+        if (!sauce)
+            throw new ErrorHandler(404, 'Sauce not found');
+
+        let success = await deleteImage(sauce.imageUrl);
+        if (success)
+            res.status(200).json({ message: 'Sauce ' + id + ' erased' });
+        else
+            throw new ErrorHandler(500, 'Error during operation');
     }
     catch (error) {
         next(error);
@@ -143,16 +156,87 @@ export function DeleteSauce(req: express.Request, res: express.Response, next: e
  * @param req 
  * @param res 
  */
-export function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
     try {
+        if (!req.body || !req.body.userId || !(typeof req.body.like == 'number'))
+            throw new ErrorHandler(400, 'Invalid json format');
+        if (!req.params.id)
+            throw new ErrorHandler(400, 'Missing parameter');
 
+        const sauceId: string = req.params.id;
+        const userId: string = req.body.userId;
+        const newLikeStatus: number = req.body.like;
+
+        let filter = { _id: { $eq: sauceId } };
+
+        let sauce = await sauceModel.findOne(filter);
+        if (!sauce)
+            throw new ErrorHandler(404, 'Sauce not found');
+
+        if (newLikeStatus == -1 && !sauce.usersDisliked.includes(userId)) {
+            if (sauce.usersLiked.includes(userId)) {
+
+                //Remove Like
+                sauce.likes -= 1;
+                removeElementFromArray(sauce.usersLiked, userId);
+            }
+
+            //Add Dislike
+            sauce.dislikes += 1;
+            sauce.usersDisliked.push(userId);
+        }
+        else if (newLikeStatus == 1 && !sauce.usersLiked.includes(userId)) {
+            if (sauce.usersDisliked.includes(userId)) {
+
+                //Remove Dislike
+                sauce.dislikes -= 1;
+                removeElementFromArray(sauce.usersDisliked, userId);
+            }
+
+            //Add Like
+            sauce.likes += 1;
+            sauce.usersLiked.push(userId);
+        }
+        else if (newLikeStatus == 0) {
+            if (sauce.usersDisliked.includes(userId)) {
+                sauce.dislikes -= 1;
+                removeElementFromArray(sauce.usersDisliked, userId);
+            }
+            if (sauce.usersLiked.includes(userId)) {
+                sauce.likes -= 1;
+                removeElementFromArray(sauce.usersLiked, userId);
+            }
+        }
+        else {
+            throw new ErrorHandler(400, 'Invalid request');
+        }
+
+        await sauceModel.updateOne(filter, sauce);
+        res.status(200).json({ message: 'Preference saved' });
     }
     catch (error) {
         next(error);
     }
 }
 
-type saveImageCallback = (error?: Error, filename?: string) => void;
+//Other method
+
+function removeElementFromArray<T>(array: T[], item: T) {
+    let i = array.indexOf(item);
+    if (i > -1)
+        array.splice(i, 1);
+}
+
+async function deleteImage(url: string) {
+    let filename: string = url.replace('http://' + HOSTNAME + ':' + PORT + '/public/blob/', '');
+    const imgPath = IMG_PATH();
+    fs.unlink(imgPath + '/' + filename, (err) => {
+        if (err) return false;
+    });
+    return true;
+}
+
+/*type saveImageCallback = (error?: Error, filename?: string) => void;
 function saveImage(file: File, callback: saveImageCallback) {
     if (file.size > 0 && file.size < MAX_IMG_SIZE * Math.pow(1024, 2)) {
         checkFileMIME(file, (err, type) => {
@@ -188,44 +272,4 @@ function saveImage(file: File, callback: saveImageCallback) {
     else {
         callback(new Error('Invalid file size'));
     }
-}
-
-type checkFileMIMECallback = (error?: Error, type?: string) => void;
-function checkFileMIME(file: File, callback: checkFileMIMECallback) {
-    file.arrayBuffer().then(
-        (array) => {
-            let arr = (new Uint8Array(array)).subarray(0, 4);
-            let header = "";
-            for (let i = 0; i < arr.length; i++) {
-                header += arr[i].toString(16);
-            }
-            console.log(header);
-
-            let type: string = '.' + file.type.split('/')[1];
-            // Add more from http://en.wikipedia.org/wiki/List_of_file_signatures
-            switch (header) {
-                case "89504e47":
-                    type = ".png";
-                    break;
-                case "47494638":
-                    type = ".gif";
-                    break;
-                case "ffd8ffe0":
-                case "ffd8ffe1":
-                case "ffd8ffe2":
-                case "ffd8ffe3":
-                case "ffd8ffe8":
-                    type = ".jpeg";
-                    break;
-                default:
-                    // Default file.type
-                    break;
-            }
-            callback(undefined, type);
-        }
-    ).catch(
-        (err) => {
-            callback(new Error('File reading error'));
-        }
-    )
-}
+}*/
