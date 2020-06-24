@@ -4,6 +4,9 @@ import * as fs from 'fs';
 //Generated key size (only if no key exist)
 export const KEY_SIZE = 64;
 
+const PASS = "KrkkpGfELHTVCcDs";
+export const MONGO_DB_URL: string = "mongodb+srv://api-user:" + PASS + "@cluster0-zb93e.azure.mongodb.net/Pekocko?ssl=true";
+
 //Secret token filename
 export const SECRET_NAME = 'TOKEN_SECRET';
 
@@ -12,7 +15,7 @@ export const HOSTNAME = 'localhost';
 export const PORT = '3000';
 
 export const IMG_PATH = (): string => {
-    let path = __dirname + '/userdata';
+    const path = __dirname + '/userdata';
     fs.mkdir(path, (err) => {
         if (err && err.code != 'EEXIST') throw err;
     });
@@ -25,12 +28,12 @@ export const IMG_TYPE = ['.png', '.jpeg'];
 export const DEBUG = true;
 
 
-export function randomKey(size: number) {
+export function randomKey(size: number):string {
     return crypto.randomBytes(size).toString('hex');
 }
-export function getSecret() {
+export function getSecret():string {
     let isDockerContain = false;
-    process.argv.forEach(function (val, index, array) {
+    process.argv.forEach(function (val, index) {
         if (index == 2 && val == '--docker')
             isDockerContain = true;
     });
@@ -39,16 +42,13 @@ export function getSecret() {
         return fs.readFileSync('/run/secret/' + SECRET_NAME, { encoding: 'utf-8' });
     }
     else {
-        let pathCompose: string[] = process.argv[1].split('/');
-        pathCompose.pop();
-        pathCompose.push(SECRET_NAME)
-        let path = pathCompose.join('/');
+        const path = __dirname + SECRET_NAME;
 
         if (fs.existsSync(path)) {
             return fs.readFileSync(path, { encoding: 'utf-8' })
         }
         else {
-            let key = randomKey(KEY_SIZE);
+            const key = randomKey(KEY_SIZE);
             fs.writeFileSync(path, key, { encoding: 'utf-8' });
             return key;
         }

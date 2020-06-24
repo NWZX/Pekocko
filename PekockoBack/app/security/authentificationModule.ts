@@ -4,18 +4,24 @@ import express from 'express';
 import { ErrorHandler } from './errorModule';
 import * as Settings from '../appSettings';
 
-export default function Auth(req: express.Request, res: express.Response, next: express.NextFunction) {
+interface IToken {
+    userId: string;
+    token: string;
+}
+
+export default function Auth(req: express.Request, res: express.Response, next: express.NextFunction):void {
     try {
-        let token = req.headers.authorization?.split(' ')[1];
-        if (token === undefined)
+        const token = req.headers.authorization?.split(' ')[1];
+        if (typeof token === 'undefined')
             throw new ErrorHandler(401, 'Token empty');
 
-        let decodedToken = jwt.verify(token, Settings.getSecret());
+        const decodedToken = jwt.verify(token, Settings.getSecret());
         if (typeof decodedToken === 'string')
             throw new ErrorHandler(401, 'Token empty');
 
-        let userId = (decodedToken as any).userId;
-        if (req.body.userId && req.body.userId !== userId) {
+        const userId = (decodedToken as IToken).userId;
+        const reqUserId = req.body.userId;
+        if (reqUserId && reqUserId !== userId) {
             throw new ErrorHandler(401, 'Invalid user ID');
         } else {
             next();
@@ -24,4 +30,4 @@ export default function Auth(req: express.Request, res: express.Response, next: 
     catch (error) {
         next(error);
     }
-};
+}

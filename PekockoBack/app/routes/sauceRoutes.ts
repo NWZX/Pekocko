@@ -4,7 +4,7 @@ import * as auth from '../security/authentificationModule';
 import * as sauceController from '../controllers/SauceController';
 import * as uploadModule from '../security/imgUploadModule';
 
-let router: Router = express.Router();
+const router: Router = express.Router();
 
 //Add a new sauce
 router.post('/', auth.default, uploadModule.default, sauceController.AddNewSauce);

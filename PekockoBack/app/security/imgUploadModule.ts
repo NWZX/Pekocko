@@ -1,7 +1,8 @@
 import multer from 'multer';
 import * as fs from 'fs';
 
-import { IMG_PATH, randomKey } from '../appSettings';
+import { IMG_PATH, randomKey, IMG_TYPE } from '../appSettings';
+import { ErrorHandler } from './errorModule';
 
 const storage = multer.diskStorage({
     destination: (req, file, callback) => {
@@ -11,11 +12,15 @@ const storage = multer.diskStorage({
         let name = new Date().getTime() + randomKey(3);
         const imgPath = IMG_PATH();
         const ext = file.mimetype.split('/')[1];
-        while (fs.existsSync(imgPath + '/' + name + '.' + ext)) {
-            name += randomKey(3);
+        if (IMG_TYPE.includes(ext)) {
+            while (fs.existsSync(imgPath + '/' + name + '.' + ext)) {
+                name += randomKey(3);
+            }
+            callback(null, name + '.' + ext);
         }
+        else
+            callback(new ErrorHandler(400, "Invalid image format"), "");
 
-        callback(null, name + '.' + ext);
     }
 });
 

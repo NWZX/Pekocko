@@ -17,10 +17,10 @@ export class ErrorHandler extends Error {
     }
 }
 
-export const isErrorHandler = (variableToCheck: any): variableToCheck is ErrorHandler =>
+export const isErrorHandler = (variableToCheck: unknown): variableToCheck is ErrorHandler =>
     (variableToCheck as ErrorHandler).statusCode !== undefined;
 
-export const handleError = (err: ErrorHandler, res: express.Response) => {
+export const handleError = (err: ErrorHandler, res: express.Response):void => {
     const { statusCode, message } = err;
 
     if (DEBUG) {
@@ -31,10 +31,10 @@ export const handleError = (err: ErrorHandler, res: express.Response) => {
         }));
     }
 
-    res.status(statusCode).send(new Error(message));
-    /*res.status(statusCode).json({
+    //res.status(statusCode).send(new Error(message));
+    res.status(statusCode).json({
         status: "error",
         statusCode,
         message
-    });*/
+    });
 };
