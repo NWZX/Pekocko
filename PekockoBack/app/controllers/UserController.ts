@@ -24,7 +24,7 @@ export async function SignUp(req: express.Request, res: express.Response, next: 
             throw new ErrorHandler(400, 'Invalid json format');
         }
 
-        const reqEmail: string = req.body.email;
+        const reqEmail: string = req.body.email.toLocaleLowerCase();
         const reqPassword: string = req.body.password;
 
         if (validator.isEmail(reqEmail)) {
@@ -32,9 +32,8 @@ export async function SignUp(req: express.Request, res: express.Response, next: 
             if (!(user instanceof Error))
                 throw new ErrorHandler(400, 'User already exist');
 
-            const lowercasesEmail: string = reqEmail;
             const newUser = {
-                email: lowercasesEmail.toLocaleLowerCase(),
+                email: reqEmail,
                 password: HashPass(reqPassword),
             };
             userModel.create(newUser, (err: unknown) => {
@@ -59,7 +58,7 @@ export async function LogIn(req: express.Request, res: express.Response, next: e
             throw new ErrorHandler(400, 'Invalid json format');
         }
 
-        const reqEmail: string = req.body.email;
+        const reqEmail: string = req.body.email.toLocaleLowerCase();
         const reqPassword: string = req.body.password;
 
         if (validator.isEmail(reqEmail)) {
