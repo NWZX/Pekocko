@@ -42,7 +42,7 @@ export function getSecret():string {
         return fs.readFileSync('/run/secret/' + SECRET_NAME, { encoding: 'utf-8' });
     }
     else {
-        const path = __dirname + SECRET_NAME;
+        const path = __dirname + '/' + SECRET_NAME;
 
         if (fs.existsSync(path)) {
             return fs.readFileSync(path, { encoding: 'utf-8' })
