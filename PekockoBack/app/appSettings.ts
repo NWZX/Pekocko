@@ -22,7 +22,7 @@ export const IMG_PATH = (): string => {
     return path;
 }
 export const MAX_IMG_SIZE = 4;
-export const IMG_TYPE = ['.png', '.jpeg'];
+export const IMG_TYPE = ['png', 'jpeg', 'jpg', 'webp'];
 
 //Enable console log
 export const DEBUG = true;
