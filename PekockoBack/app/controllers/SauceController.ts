@@ -28,8 +28,7 @@ export async function GetAllSauce(req: express.Request, res: express.Response, n
 
 function isRequestAddNewSauce(body: unknown): body is Sauces.ISauce {
     if (body && typeof body === 'object')
-        return 'id' in body &&
-            'userId' in body &&
+        return 'userId' in body &&
             'name' in body &&
             'manufacturer' in body &&
             'description' in body &&
@@ -44,7 +43,7 @@ function isRequestAddNewSauce(body: unknown): body is Sauces.ISauce {
  */
 export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction):void {
     try {
-        if (!req.file || !req.body || !isRequestAddNewSauce(req.body.sauce))
+        if (!req.file || !req.body || !isRequestAddNewSauce(JSON.parse(req.body.sauce)))
             throw new ErrorHandler(400, 'Invalid json format');
 
         const receptSauce: Sauces.ISauce = JSON.parse(req.body.sauce);
@@ -63,6 +62,9 @@ export function AddNewSauce(req: express.Request, res: express.Response, next: e
         res.status(201).json({ message: 'Adding new sauce' });
     }
     catch (error) {
+        if (req.file && fs.existsSync(req.file.path))
+            fs.unlinkSync(req.file.path);
+        
         next(error);
     }
 }
@@ -92,17 +94,12 @@ export async function GetSauce(req: express.Request, res: express.Response, next
 
 function isRequestUpdateSauce(body: unknown): body is Sauces.ISauce {
     if (body && typeof body === 'object')
-        return 'id' in body &&
-            'userId' in body &&
+        return 'userId' in body &&
             'name' in body &&
             'manufacturer' in body &&
             'description' in body &&
             'mainPepper' in body &&
-            'imageUrl' in body &&
-            'heat' in body &&
-            'dislikes' in body &&
-            'usersLiked' in body &&
-            'usersDisliked' in body;
+            'heat' in body;
     else
         return false;
 }
@@ -151,6 +148,9 @@ export async function UpdateSauce(req: express.Request, res: express.Response, n
         res.status(200).json({ message: 'Sauce updated' });
     }
     catch (error) {
+        if (req.file && fs.existsSync(req.file.path))
+            fs.unlinkSync(req.file.path);
+        
         next(error);
     }
 }
