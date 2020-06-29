@@ -2,6 +2,8 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 
 //Route Files
 import * as userRoutes from './routes/userRoutes';
@@ -9,14 +11,13 @@ import * as sauceRoutes from './routes/sauceRoutes';
 import { ErrorHandler, handleError, isErrorHandler } from './security/errorModule';
 
 //Setting
-import { PORT, IMG_PATH } from './appSettings';
+import { PORT, IMG_PATH, MONGO_DB_URL } from './appSettings';
 
 // Create a new express application instance
 const app: express.Application = express();
 
-
 //Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/', { useNewUrlParser: true }).then(() => {
+mongoose.connect(MONGO_DB_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(() => {
     console.log('Successfully connected to MongoDB');
 }).catch((error) => {
     console.log('Unable to connect to MongoDB');
@@ -24,19 +25,34 @@ mongoose.connect('mongodb://localhost:27017/', { useNewUrlParser: true }).then((
 });
 
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content, Accept, Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     next();
 });
 
+//Helmet http header security
+app.use(helmet());
+app.use(helmet.permittedCrossDomainPolicies());
+app.use(helmet.referrerPolicy({ policy: 'no-referrer' }));
+app.use(helmet.contentSecurityPolicy({
+    directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", 'fonts.googleapis.com', 'use.fontawesome.com']
+    }
+}))
+
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+//Protect for noSQL injection
+app.use(mongoSanitize())
 
 //Create Route
 app.use('/public/blob/', express.static(IMG_PATH()));
 app.use('/api/auth', userRoutes.default);
 app.use('/api/sauces', sauceRoutes.default);
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: unknown, req: express.Request, res: express.Response) => {
     if (isErrorHandler(err))
         handleError(err, res);
     else if (err instanceof Error)

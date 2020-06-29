@@ -1,28 +1,33 @@
 import jwt from 'jsonwebtoken';
 import express from 'express';
+
+import { ErrorHandler } from './errorModule';
 import * as Settings from '../appSettings';
 
-export default function Auth(req: express.Request, res: express.Response, next: express.NextFunction) {
+interface IToken {
+    userId: string;
+    token: string;
+}
+
+export default function Auth(req: express.Request, res: express.Response, next: express.NextFunction):void {
     try {
-        let token = req.headers.authorization?.split(' ')[1];
-        if (token === undefined)
-            throw new Error("Token null");
+        const token = req.headers.authorization?.split(' ')[1];
+        if (typeof token === 'undefined')
+            throw new ErrorHandler(401, 'Token empty');
 
-        let decodedToken = jwt.verify(token, Settings.getSecret());
-        if (typeof decodedToken === 'string') {
-            throw new Error("Token null");
-        }
+        const decodedToken = jwt.verify(token, Settings.getSecret());
+        if (typeof decodedToken === 'string')
+            throw new ErrorHandler(401, 'Token empty');
 
-        let userId = (decodedToken as any).userId;
-        if (req.body.userId && req.body.userId !== userId) {
-            throw new Error('Invalid user ID');
+        const userId = (decodedToken as IToken).userId;
+        const reqUserId = req.body.userId;
+        if (reqUserId && reqUserId !== userId) {
+            throw new ErrorHandler(401, 'Invalid user ID');
         } else {
             next();
         }
     }
-    catch {
-        res.status(401).json({
-            error: new Error('Invalid request!')
-        });
+    catch (error) {
+        next(error);
     }
-};
+}

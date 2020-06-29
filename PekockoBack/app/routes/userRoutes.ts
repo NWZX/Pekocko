@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import * as userController from '../controllers/UserController';
 
-let router: Router = express.Router();
+const router: Router = express.Router();
 
 //Add a new user
 router.post('/signup', userController.SignUp);

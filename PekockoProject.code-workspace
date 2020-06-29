@@ -10,5 +10,12 @@
 			"path": "PekockoFront"
 		}
 	],
-	"settings": {}
+	"settings": {
+
+		"editor.formatOnSave": false,
+		"eslint.format.enable": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll": true
+		}
+	}
 }

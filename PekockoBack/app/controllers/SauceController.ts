@@ -1,22 +1,20 @@
-import express, { json } from 'express';
+import express from 'express';
 import * as fs from 'fs';
-import { v4 as uuid } from 'uuid';
 
 import * as Sauces from '../models/SauceModel';
 import { ErrorHandler } from '../security/errorModule';
-import { IMG_PATH, MAX_IMG_SIZE, IMG_TYPE, HOSTNAME, PORT } from '../appSettings';
-import { fileURLToPath } from 'url';
+import { IMG_PATH, HOSTNAME, PORT } from '../appSettings';
 
-let sauceModel = Sauces.default;
+const sauceModel = Sauces.default;
 
 /**
  * Get all sauces in database
  * @param req
  * @param res
  */
-export async function GetAllSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function GetAllSauce(req: express.Request, res: express.Response, next: express.NextFunction):Promise<void> {
     try {
-        let sauce = await sauceModel.find();
+        const sauce = await sauceModel.find();
         if (sauce.length > 0)
             res.status(200).json(sauce);
         else
@@ -27,18 +25,29 @@ export async function GetAllSauce(req: express.Request, res: express.Response, n
     }
 }
 
+
+function isRequestAddNewSauce(body: unknown): body is Sauces.ISauce {
+    if (body && typeof body === 'object')
+        return 'userId' in body &&
+            'name' in body &&
+            'manufacturer' in body &&
+            'description' in body &&
+            'mainPepper' in body;
+    else
+        return false;
+}
 /**
  * Add a new sauce in database
  * @param req
  * @param res
  */
-export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export function AddNewSauce(req: express.Request, res: express.Response, next: express.NextFunction):void {
     try {
-        if (!req.body || !req.file || !req.body.sauce)
+        if (!req.file || !req.body || !isRequestAddNewSauce(JSON.parse(req.body.sauce)))
             throw new ErrorHandler(400, 'Invalid json format');
 
-        let receptSauce: Sauces.ISauce = JSON.parse(req.body.sauce);
-        let receptImg: Express.Multer.File = req.file;
+        const receptSauce: Sauces.ISauce = JSON.parse(req.body.sauce);
+        const receptImg: Express.Multer.File = req.file;
 
         receptSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob/' + receptImg.filename;
         receptSauce.likes = 0;
@@ -46,13 +55,16 @@ export function AddNewSauce(req: express.Request, res: express.Response, next: e
         receptSauce.usersLiked = [];
         receptSauce.usersDisliked = [];
 
-        sauceModel.create(receptSauce, (err: any, result: Sauces.ISauce[]) => {
+        sauceModel.create(receptSauce, (err: unknown) => {
             if (err) throw err;
         });
 
         res.status(201).json({ message: 'Adding new sauce' });
     }
     catch (error) {
+        if (req.file && fs.existsSync(req.file.path))
+            fs.unlinkSync(req.file.path);
+        
         next(error);
     }
 }
@@ -62,14 +74,14 @@ export function AddNewSauce(req: express.Request, res: express.Response, next: e
  * @param req
  * @param res
  */
-export async function GetSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function GetSauce(req: express.Request, res: express.Response, next: express.NextFunction):Promise<void> {
     try {
         if (!req.params.id)
             throw new ErrorHandler(400, 'Missing parameter');
 
-        let id: string = req.params.id;
+        const id: string = req.params.id;
 
-        let sauce = await sauceModel.findOne({ _id: { $eq: id } });
+        const sauce = await sauceModel.findOne({ _id: { $eq: id } });
         if (!sauce)
             throw new ErrorHandler(404, 'Sauce not found');
         else
@@ -80,12 +92,23 @@ export async function GetSauce(req: express.Request, res: express.Response, next
     }
 }
 
+function isRequestUpdateSauce(body: unknown): body is Sauces.ISauce {
+    if (body && typeof body === 'object')
+        return 'userId' in body &&
+            'name' in body &&
+            'manufacturer' in body &&
+            'description' in body &&
+            'mainPepper' in body &&
+            'heat' in body;
+    else
+        return false;
+}
 /**
  * Update the sauce match with ID
  * @param req
  * @param res
  */
-export async function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function UpdateSauce(req: express.Request, res: express.Response, next: express.NextFunction):Promise<void> {
     try {
         if (!req.body)
             throw new ErrorHandler(400, 'Invalid json argument');
@@ -93,25 +116,30 @@ export async function UpdateSauce(req: express.Request, res: express.Response, n
             throw new ErrorHandler(400, 'Missing parameter');
 
         const sauceId: string = req.params.id;
-        let filter = { _id: { $eq: sauceId } };
+        const filter = { _id: { $eq: sauceId } };
 
         //Verifie si la sauce existe
-        let oldSauce = await sauceModel.findOne(filter);
+        const oldSauce = await sauceModel.findOne(filter);
         if (!oldSauce)
             throw new ErrorHandler(404, 'Sauce not found');
 
         //If file or not
         let newSauce: Sauces.ISauce;
         if (req.body.sauce && req.file) {
-            newSauce = JSON.parse(req.body.sauce);
-            deleteImage(oldSauce.imageUrl);
-            newSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob/' + req.file.filename;
+            const parseResult = JSON.parse(req.body.sauce);
+            if (isRequestUpdateSauce(parseResult)) {
+                newSauce = parseResult;
+                deleteImage(oldSauce.imageUrl);
+                newSauce.imageUrl = 'http://' + HOSTNAME + ':' + PORT + '/public/blob/' + req.file.filename;
+            }
+            else
+                throw new ErrorHandler(400, 'Invalid json argument');
         }
         else {
-            if (req.body.name)
+            if (isRequestUpdateSauce(req.body))
                 newSauce = req.body;
             else
-                throw new ErrorHandler(400, '');
+                throw new ErrorHandler(400, 'Invalid json argument');
         }
 
         //Met a jour la sauce
@@ -120,6 +148,9 @@ export async function UpdateSauce(req: express.Request, res: express.Response, n
         res.status(200).json({ message: 'Sauce updated' });
     }
     catch (error) {
+        if (req.file && fs.existsSync(req.file.path))
+            fs.unlinkSync(req.file.path);
+        
         next(error);
     }
 }
@@ -129,18 +160,18 @@ export async function UpdateSauce(req: express.Request, res: express.Response, n
  * @param req
  * @param res
  */
-export async function DeleteSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function DeleteSauce(req: express.Request, res: express.Response, next: express.NextFunction):Promise<void> {
     try {
         if (!req.params.id)
             throw new ErrorHandler(400, 'Missing parameter');
 
-        let id: string = req.params.id;
+        const id: string = req.params.id;
 
-        let sauce = await sauceModel.findOneAndDelete({ _id: { $eq: id } });
+        const sauce = await sauceModel.findOneAndDelete({ _id: { $eq: id } });
         if (!sauce)
             throw new ErrorHandler(404, 'Sauce not found');
 
-        let success = await deleteImage(sauce.imageUrl);
+        const success = await deleteImage(sauce.imageUrl);
         if (success)
             res.status(200).json({ message: 'Sauce ' + id + ' erased' });
         else
@@ -151,14 +182,24 @@ export async function DeleteSauce(req: express.Request, res: express.Response, n
     }
 }
 
+interface IRequestLikeSauce{
+    userId: string;
+    like: number;
+}
+function isRequestLikeSauce(body: unknown): body is IRequestLikeSauce {
+    if (body && typeof body === 'object')
+        return 'userId' in body && 'like' in body;
+    else
+        return false;
+}
 /**
  * Update the likes of the sauce
  * @param req
  * @param res
  */
-export async function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction) {
+export async function LikeSauce(req: express.Request, res: express.Response, next: express.NextFunction):Promise<void> {
     try {
-        if (!req.body || !req.body.userId || !(typeof req.body.like == 'number'))
+        if (!isRequestLikeSauce(req.body))
             throw new ErrorHandler(400, 'Invalid json format');
         if (!req.params.id)
             throw new ErrorHandler(400, 'Missing parameter');
@@ -167,9 +208,9 @@ export async function LikeSauce(req: express.Request, res: express.Response, nex
         const userId: string = req.body.userId;
         const newLikeStatus: number = req.body.like;
 
-        let filter = { _id: { $eq: sauceId } };
+        const filter = { _id: { $eq: sauceId } };
 
-        let sauce = await sauceModel.findOne(filter);
+        const sauce = await sauceModel.findOne(filter);
         if (!sauce)
             throw new ErrorHandler(404, 'Sauce not found');
 
@@ -222,54 +263,16 @@ export async function LikeSauce(req: express.Request, res: express.Response, nex
 //Other method
 
 function removeElementFromArray<T>(array: T[], item: T) {
-    let i = array.indexOf(item);
+    const i = array.indexOf(item);
     if (i > -1)
         array.splice(i, 1);
 }
 
 async function deleteImage(url: string) {
-    let filename: string = url.replace('http://' + HOSTNAME + ':' + PORT + '/public/blob/', '');
+    const filename: string = url.replace('http://' + HOSTNAME + ':' + PORT + '/public/blob/', '');
     const imgPath = IMG_PATH();
     fs.unlink(imgPath + '/' + filename, (err) => {
         if (err) return false;
     });
     return true;
 }
-
-/*type saveImageCallback = (error?: Error, filename?: string) => void;
-function saveImage(file: File, callback: saveImageCallback) {
-    if (file.size > 0 && file.size < MAX_IMG_SIZE * Math.pow(1024, 2)) {
-        checkFileMIME(file, (err, type) => {
-            if (typeof err === 'undefined' && typeof type === 'string') {
-                if (!IMG_TYPE.includes(type))
-                    callback(new Error('Invalid file type'));
-
-                const imgPath = IMG_PATH();
-                let path = imgPath + '/' + uuid() + type;
-
-                while (fs.existsSync(path)) {
-                    path = imgPath + '/' + uuid() + type;
-                }
-
-                const promiseText = file.text().then(
-                    (text) => {
-                        fs.writeFile(path, text, (err) => {
-                            if (err) callback(new Error(err.message));
-                        })
-                        callback(undefined, path.split('/')[path.split('/').length - 1]);
-                    }
-                ).catch(
-                    (error) => {
-                        callback(new Error(error));
-                    }
-                );
-            }
-            else {
-                callback(err);
-            }
-        });
-    }
-    else {
-        callback(new Error('Invalid file size'));
-    }
-}*/
